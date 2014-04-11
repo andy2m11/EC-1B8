@@ -19,11 +19,11 @@
 #include <time.h>
 #include <signal.h>
 #include <sys/wait.h>
-
+//technically rdtsc is used for measuring performance and not time... but w/e.
 #define rdtsc(x)      __asm__ __volatile__("rdtsc \n\t" : "=A" (*(x)))
 unsigned long long start, finish;
-
-
+clock_t  begin, end;
+time_t   begint, endt;
 #define SERVER_PORT	27015
 // #define MAX_PENDING	5
 
@@ -41,11 +41,27 @@ typedef struct {
 } Sobj;
 int curThreads = 1;
 int totalConnections = 0;
-int totalSum = 0;
+long long totalSum = 0;
 
 pthread_mutex_t mutexloc;
 pthread_t callThd[MaxThreads];
 
+
+static struct timeval start_time;
+
+void init_time() {
+gettimeofday(&start_time, NULL);
+}
+
+int64_t get_time() {
+struct timeval t;
+gettimeofday(&t, NULL);
+return (int64_t) (t.tv_sec - start_time.tv_sec) * 1000000
++ (t.tv_usec - start_time.tv_usec);
+}
+
+int64_t t0 = 0;
+int64_t t1 = 0;
 void *cHandler(void *socket_desc)
 {
 	char f = 'f';
@@ -57,9 +73,13 @@ void *cHandler(void *socket_desc)
  	 int n;
 	pthread_mutex_lock(&mutexloc);//------
 	
-	rdtsc(&finish);					
-	double rtime = ((double)(finish-start))/(double)800000000;   			
-	sprintf(sendf, "Greetings. Server has served %d clients and has been running for %lf seconds.\n",totalConnections, rtime);		
+//	rdtsc(&finish);					
+//	double rtime = ((double)(finish-start))/(double)250000000; 
+//	sprintf(sendf, "Greetings. Server has served %d clients and has been running for %lf seconds.\n",totalConnections, rtime);
+	int64_t t1 = get_time();
+        double timepassed = (t1 - t0)/CLOCKS_PER_SEC;
+       	sprintf(sendf, "Greetings. Server has served %d clients and has been running for %lf seconds.\n",totalConnections, timepassed);
+		
 	len = strlen( sendf);
 	send( new_s, sendf, len, 0);    
 			
@@ -71,13 +91,13 @@ void *cHandler(void *socket_desc)
 		pthread_mutex_lock(&mutexloc);//-----	
 		totalSum += n;
 		pthread_mutex_unlock(&mutexloc);//-----	
-		fprintf(stderr, "Total Sum:%d socket descriptor %d sent:%s \" \n ",totalSum, new_s, buf);
+		fprintf(stderr, "Total Sum:%lld socket descriptor %d sent:%s \n ",totalSum, new_s, buf);
 		
-		sprintf(reply, "You sent:%s \n",buf);			
+		sprintf(reply, "You sent:%sTotal Sum:%lld \n",buf, totalSum);			
 		len = strlen( reply);
 		send( new_s, reply, len, 0); 
 		memset(reply,0, MAX_LINE);  	
-			
+		memset(buf,0, MAX_LINE);  	
 
 	} //end while(len>0)
     close(new_s); 
@@ -103,10 +123,13 @@ int main(int argc, char *argv[])
   int c_one = 1;
   int rc;
   
+  struct timeval tv;
+  init_time();
+  t0 = get_time();
+//  rdtsc(&start);		
+//  begin = clock();
 
-  rdtsc(&start);		
-
-
+ // gettimeofday(&begint, 0);
 
 /*							
 	pthread_t *threads;
@@ -177,9 +200,9 @@ int main(int argc, char *argv[])
     else
     {
     	
-	rdtsc(&finish);
-	double rtime = ((double)(finish-start))/(double)800000000;        
-	fprintf(stderr, "Time Elasped: %lf seconds.\n", rtime);	
+//	rdtsc(&finish);
+//	double rtime = ((double)(finish-start))/(double)250000000;        
+//	fprintf(stderr, "Time Elasped: %lf seconds.\n", rtime);	
 
 	printf("New connection on fd:%d\n",new_s);
 	++conn;
@@ -195,6 +218,18 @@ int main(int argc, char *argv[])
 	/////////////////////////////////////////////////
      }
 
+ //    end = clock();
+     t1 = get_time();
+ //    double ctime = (end-begin)/CLOCKS_PER_SEC;
+     double timepassed = (t1 - t0)/CLOCKS_PER_SEC;
+//     gettimeofday(&endt, 0);
+//     long elapsed = (endt.tv_sec-begint.tv_sec)*1000000 + endt.tv_usec-begint.tv_usec;
+     fprintf(stderr, "Server has been running for %lf seconds.\n", timepassed);
+/*   
+     	rdtsc(&finish);					
+	 double rtime = ((double)(finish-start))/(double)800000000;   			
+	fprintf(stderr, "Server has been running for %lf seconds.\n", rtime);
+*/
   } //end while(1)p
   
   close(s);

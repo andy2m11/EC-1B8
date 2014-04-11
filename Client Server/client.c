@@ -85,7 +85,8 @@ int main(int argc, char *argv[])
 	len = MAX_LINE - 1;
       }
       buf[len] = 0;
-      fputs( buf, stdout);
+      fputs( buf, stdout);		
+      memset(buf, 0, MAX_LINE);
       fprintf(stderr, "\n>>");
     }
   }
